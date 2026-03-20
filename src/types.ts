@@ -14,7 +14,6 @@ export type SkillWarningCode =
   | "invalid_meta_name"
   | "invalid_meta_description"
   | "skill_md_content_size_limit_exceeded"
-  | "reference_large_without_toc"
   | "resource_read_error";
 
 export interface SkillWarning {

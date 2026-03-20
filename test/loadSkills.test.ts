@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -249,7 +249,7 @@ describe("loadSkills", () => {
     ).toBe(true);
   });
 
-  it("returns invalid for large reference without a table of contents marker", async () => {
+  it("keeps large reference files valid when other rules pass", async () => {
     const root = await createTempSkillsRoot();
     const largeRef = Array.from({ length: 301 }, (_, i) => `row ${i + 1}`).join(
       "\n",
@@ -263,13 +263,8 @@ describe("loadSkills", () => {
     });
 
     const result = await loadSkills({ paths: [root] });
-    expect(Object.keys(result.skills)).toHaveLength(0);
-    const invalid = result.report.invalidSkills[0]!;
-    expect(
-      invalid.warnings.some(
-        (warning) => warning.code === "reference_large_without_toc",
-      ),
-    ).toBe(true);
+    expect(Object.keys(result.skills)).toEqual(["large-ref"]);
+    expect(result.report.invalidSkills).toEqual([]);
   });
 
   it("uses first-find-wins for duplicate skill names across paths", async () => {
@@ -344,6 +339,22 @@ describe("loadSkills", () => {
     expect(report.paths[0]?.error).toBeUndefined();
     expect(report.paths[1]?.error).toBeUndefined();
     expect(report.invalidSkills).toEqual([]);
+  });
+
+  it("inspects symlinked skill directories like regular directories", async () => {
+    const root = await createTempSkillsRoot();
+    await writeSkill(root, "alpha", {
+      frontmatter: { name: "alpha", description: "alpha" },
+      body: "content",
+    });
+
+    const linkedRoot = path.join(root, "linked-skills");
+    await mkdir(linkedRoot, { recursive: true });
+    await symlink(path.join(root, "alpha"), path.join(linkedRoot, "alpha"));
+
+    const result = await loadSkills({ paths: [linkedRoot], recursive: false });
+    expect(Object.keys(result.skills)).toEqual(["alpha"]);
+    expect(result.report.paths[0]?.count).toBe(1);
   });
 
   it("returns empty skills when all configured paths are invalid", async () => {

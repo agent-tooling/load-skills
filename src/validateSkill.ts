@@ -8,7 +8,6 @@ const INVALID_WARNING_CODES = new Set([
   "invalid_meta_name",
   "invalid_meta_description",
   "skill_md_content_size_limit_exceeded",
-  "reference_large_without_toc",
   "resource_read_error",
 ]);
 
@@ -72,31 +71,6 @@ export function applyValidationRules(input: {
     warnings: dedupedWarnings,
     isValid: false,
   };
-}
-
-export function validateLargeReferences(
-  references: Array<{ path: string; content: string; lineCount: number }>,
-): SkillWarning[] {
-  const warnings: SkillWarning[] = [];
-
-  for (const reference of references) {
-    if (reference.lineCount <= 300) {
-      continue;
-    }
-
-    const normalized = reference.content.toLowerCase();
-    const hasTocMarker =
-      normalized.includes("table of contents") || normalized.includes("[toc]");
-
-    if (!hasTocMarker) {
-      warnings.push({
-        code: "reference_large_without_toc",
-        message: `Large reference file is missing a table of contents hint: ${reference.path}`,
-      });
-    }
-  }
-
-  return warnings;
 }
 
 function dedupeWarnings(warnings: SkillWarning[]): SkillWarning[] {

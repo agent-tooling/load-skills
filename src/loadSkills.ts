@@ -15,10 +15,7 @@ import type {
   SkillWarning,
 } from "./types.js";
 import { getErrorMessage, pathExists } from "./utils.js";
-import {
-  applyValidationRules,
-  validateLargeReferences,
-} from "./validateSkill.js";
+import { applyValidationRules } from "./validateSkill.js";
 
 export async function loadSkills(
   config?: LoadSkillsConfig,
@@ -50,11 +47,6 @@ export async function loadSkills(
 
     const resourceScan = await collectResources(skillPath);
     skillWarnings.push(...resourceScan.warnings);
-
-    const largeReferenceWarnings = validateLargeReferences(
-      resourceScan.referenceContents,
-    );
-    skillWarnings.push(...largeReferenceWarnings);
 
     const validated = applyValidationRules({
       meta: parsed.meta,
@@ -138,11 +130,6 @@ export async function loadSkills(
 
 interface ResourceScanResult {
   references: string[];
-  referenceContents: Array<{
-    path: string;
-    content: string;
-    lineCount: number;
-  }>;
   scripts: SkillScript[];
   warnings: SkillWarning[];
 }
@@ -157,19 +144,9 @@ async function collectResources(
   const referenceFiles = await listFilesRecursively(referencesRoot, warnings);
   const scriptFiles = await listFilesRecursively(scriptsRoot, warnings);
 
-  const referenceContents: Array<{
-    path: string;
-    content: string;
-    lineCount: number;
-  }> = [];
   for (const filePath of referenceFiles) {
     try {
-      const content = await readFile(filePath, "utf8");
-      referenceContents.push({
-        path: filePath,
-        content,
-        lineCount: content.length === 0 ? 0 : content.split(/\r?\n/).length,
-      });
+      await readFile(filePath, "utf8");
     } catch (error) {
       warnings.push({
         code: "resource_read_error",
@@ -188,7 +165,6 @@ async function collectResources(
 
   return {
     references: referenceFiles.sort((a, b) => a.localeCompare(b)),
-    referenceContents,
     scripts: scripts.sort((a, b) => a.path.localeCompare(b.path)),
     warnings,
   };

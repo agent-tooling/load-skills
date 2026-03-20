@@ -86,11 +86,17 @@ async function discoverNonRecursive(rootPath: string): Promise<string[]> {
   const paths: string[] = [];
 
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-    if (!entry.isDirectory()) {
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) {
       continue;
     }
 
-    const candidate = path.join(rootPath, entry.name, "SKILL.md");
+    const candidateDir = path.join(rootPath, entry.name);
+    const candidateDirStat = await stat(candidateDir).catch(() => null);
+    if (!candidateDirStat?.isDirectory()) {
+      continue;
+    }
+
+    const candidate = path.join(candidateDir, "SKILL.md");
     if (await isReadableFile(candidate)) {
       paths.push(candidate);
     }
@@ -113,7 +119,11 @@ async function discoverRecursive(rootPath: string): Promise<string[]> {
         continue;
       }
 
-      if (entry.isDirectory()) {
+      if (entry.isDirectory() || entry.isSymbolicLink()) {
+        const directoryStat = await stat(fullPath).catch(() => null);
+        if (!directoryStat?.isDirectory()) {
+          continue;
+        }
         await walk(fullPath);
       }
     }

@@ -58,5 +58,4 @@ These warnings appear on `report.invalidSkills[*].warnings`.
 - `invalid_meta_name`: `name` is present but not a non-empty string.
 - `invalid_meta_description`: `description` is present but not a non-empty string.
 - `skill_md_content_size_limit_exceeded`: `SKILL.md` body exceeds 500 lines.
-- `reference_large_without_toc`: A `references/` file exceeds 300 lines without a table-of-contents marker.
 - `resource_read_error`: A resource file or directory could not be read during scanning.
