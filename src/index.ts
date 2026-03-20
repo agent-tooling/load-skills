@@ -1,15 +1,16 @@
 export { loadSkills } from "./loadSkills.js";
 export type {
-  LoadedSkill,
-  LoadSkillsConfig,
   IgnoredDuplicateSkill,
+  InvalidSkill,
+  LoadSkillsConfig,
   LoadSkillsPathError,
   LoadSkillsPathReport,
   LoadSkillsReport,
   LoadSkillsResult,
+  Skill,
+  SkillMeta,
   SkillScript,
   SkillScriptType,
-  SkillState,
   SkillWarning,
   SkillWarningCode,
 } from "./types.js";

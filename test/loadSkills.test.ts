@@ -36,14 +36,15 @@ describe("loadSkills", () => {
       paths: [root],
       recursive: false,
     });
-    expect(skills).toHaveLength(1);
+    expect(Object.keys(skills)).toHaveLength(1);
     expect(report.paths).toHaveLength(1);
     expect(report.paths[0]?.error).toBeUndefined();
     expect(report.paths[0]?.count).toBe(1);
     expect(report.paths[0]?.skillNames).toEqual(["alpha"]);
     expect(report.ignoredDuplicates).toEqual({});
+    expect(report.invalidSkills).toEqual([]);
 
-    const skill = skills[0]!;
+    const skill = skills.alpha!;
     expect(skill.meta.name).toBe("alpha");
     expect(skill.meta.description).toBe("alpha skill");
     expect(skill.content).toContain("## Instructions");
@@ -67,8 +68,8 @@ describe("loadSkills", () => {
           script.path.endsWith(path.join("scripts", "run.ts")),
       ),
     ).toBe(true);
-    expect(skill.state).toBe("valid");
-    expect(skill.warnings).toEqual([]);
+    expect(skill.meta.name).toBe("alpha");
+    expect(typeof skill.meta.description).toBe("string");
   });
 
   it("uses default path and recursive=false when called without config", async () => {
@@ -91,8 +92,9 @@ describe("loadSkills", () => {
     try {
       process.chdir(root);
       const result = await loadSkills();
-      expect(result.skills).toHaveLength(1);
-      expect(result.skills[0]?.meta.name).toBe("default-skill");
+      expect(Object.keys(result.skills)).toHaveLength(1);
+      expect(result.skills["default-skill"]?.meta.name).toBe("default-skill");
+      expect(result.report.invalidSkills).toHaveLength(0);
       expect(result.report.paths).toHaveLength(1);
       expect(result.report.paths[0]?.inputPath).toBe("./.agents/skills");
       expect(result.report.paths[0]?.count).toBe(1);
@@ -113,14 +115,10 @@ describe("loadSkills", () => {
     });
 
     const nonRecursive = await loadSkills({ paths: [root], recursive: false });
-    expect(nonRecursive.skills.map((skill) => String(skill.meta.name))).toEqual(
-      ["top"],
-    );
+    expect(Object.keys(nonRecursive.skills)).toEqual(["top"]);
 
     const recursive = await loadSkills({ paths: [root], recursive: true });
-    expect(
-      recursive.skills.map((skill) => String(skill.meta.name)).sort(),
-    ).toEqual(["nested", "top"]);
+    expect(Object.keys(recursive.skills).sort()).toEqual(["nested", "top"]);
   });
 
   it("returns invalid when frontmatter is missing", async () => {
@@ -129,11 +127,13 @@ describe("loadSkills", () => {
       rawSkill: "## Instructions\nNo frontmatter.",
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some((warning) => warning.code === "missing_frontmatter"),
+      invalid.warnings.some(
+        (warning) => warning.code === "missing_frontmatter",
+      ),
     ).toBe(true);
   });
 
@@ -143,11 +143,11 @@ describe("loadSkills", () => {
       rawSkill: "---\nname: bad-yaml\ndescription: [broken\n---\nbody",
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "invalid_yaml_frontmatter",
       ),
     ).toBe(true);
@@ -160,11 +160,11 @@ describe("loadSkills", () => {
       body: "content",
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "missing_required_meta_description",
       ),
     ).toBe(true);
@@ -176,14 +176,14 @@ describe("loadSkills", () => {
       rawSkill: "---\nname: 123\ndescription: true\n---\ncontent",
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some((warning) => warning.code === "invalid_meta_name"),
+      invalid.warnings.some((warning) => warning.code === "invalid_meta_name"),
     ).toBe(true);
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "invalid_meta_description",
       ),
     ).toBe(true);
@@ -195,21 +195,21 @@ describe("loadSkills", () => {
       rawSkill: "---\n---\ncontent",
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "invalid_yaml_frontmatter",
       ),
     ).toBe(false);
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "missing_required_meta_name",
       ),
     ).toBe(true);
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "missing_required_meta_description",
       ),
     ).toBe(true);
@@ -223,8 +223,7 @@ describe("loadSkills", () => {
     });
 
     const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("valid");
+    const skill = skills["bom-crlf"]!;
     expect(skill.meta.name).toBe("bom-crlf");
     expect(skill.content).toContain("## Instructions");
   });
@@ -240,11 +239,11 @@ describe("loadSkills", () => {
       body: longBody,
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "skill_md_content_size_limit_exceeded",
       ),
     ).toBe(true);
@@ -263,11 +262,11 @@ describe("loadSkills", () => {
       },
     });
 
-    const { skills } = await loadSkills({ paths: [root] });
-    const skill = skills[0]!;
-    expect(skill.state).toBe("invalid");
+    const result = await loadSkills({ paths: [root] });
+    expect(Object.keys(result.skills)).toHaveLength(0);
+    const invalid = result.report.invalidSkills[0]!;
     expect(
-      skill.warnings.some(
+      invalid.warnings.some(
         (warning) => warning.code === "reference_large_without_toc",
       ),
     ).toBe(true);
@@ -289,13 +288,14 @@ describe("loadSkills", () => {
       paths: [higherPriorityRoot, lowerPriorityRoot],
     });
 
-    expect(skills).toHaveLength(1);
-    expect(skills[0]?.meta.name).toBe("dup");
-    expect(skills[0]?.content).toContain("one");
+    expect(Object.keys(skills)).toEqual(["dup"]);
+    expect(skills.dup?.meta.name).toBe("dup");
+    expect(skills.dup?.content).toContain("one");
 
     expect(report.paths).toHaveLength(2);
     expect(report.paths[0]?.skillNames).toEqual(["dup"]);
     expect(report.paths[1]?.skillNames).toEqual([]);
+    expect(report.invalidSkills).toEqual([]);
 
     expect(Object.keys(report.ignoredDuplicates)).toEqual(["dup"]);
     const ignored = report.ignoredDuplicates.dup?.[0];
@@ -316,10 +316,11 @@ describe("loadSkills", () => {
     const missingPath = path.join(root, "does-not-exist");
     const result = await loadSkills({ paths: [missingPath, filePath] });
 
-    expect(result.skills).toHaveLength(0);
+    expect(Object.keys(result.skills)).toHaveLength(0);
     expect(result.report.paths).toHaveLength(2);
     expect(result.report.paths[0]?.error).toBe("path_not_found");
     expect(result.report.paths[1]?.error).toBe("path_not_directory");
+    expect(result.report.invalidSkills).toEqual([]);
   });
 
   it("loads from multiple configured paths in deterministic order", async () => {
@@ -338,12 +339,11 @@ describe("loadSkills", () => {
       paths: [rootB, rootA],
       recursive: false,
     });
-    expect(new Set(skills.map((skill) => String(skill.meta.name)))).toEqual(
-      new Set(["alpha", "beta"]),
-    );
+    expect(new Set(Object.keys(skills))).toEqual(new Set(["alpha", "beta"]));
     expect(report.paths).toHaveLength(2);
     expect(report.paths[0]?.error).toBeUndefined();
     expect(report.paths[1]?.error).toBeUndefined();
+    expect(report.invalidSkills).toEqual([]);
   });
 
   it("returns empty skills when all configured paths are invalid", async () => {
@@ -354,11 +354,12 @@ describe("loadSkills", () => {
     const result = await loadSkills({
       paths: [path.join(root, "missing"), filePath],
     });
-    expect(result.skills).toHaveLength(0);
+    expect(Object.keys(result.skills)).toHaveLength(0);
     expect(result.report.paths.map((item) => item.error)).toEqual([
       "path_not_found",
       "path_not_directory",
     ]);
+    expect(result.report.invalidSkills).toEqual([]);
   });
 });
 

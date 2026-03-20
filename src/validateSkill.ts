@@ -1,4 +1,4 @@
-import type { LoadedSkill, SkillWarning } from "./types.js";
+import type { SkillMeta, SkillWarning } from "./types.js";
 
 const INVALID_WARNING_CODES = new Set([
   "missing_frontmatter",
@@ -12,10 +12,18 @@ const INVALID_WARNING_CODES = new Set([
   "resource_read_error",
 ]);
 
-export function applyValidationRules(skill: LoadedSkill): LoadedSkill {
-  const warnings = [...skill.warnings];
-  const metaName = skill.meta.name;
-  const metaDescription = skill.meta.description;
+export function applyValidationRules(input: {
+  meta: Record<string, unknown>;
+  content: string;
+  warnings: SkillWarning[];
+}): {
+  warnings: SkillWarning[];
+  isValid: boolean;
+  meta?: SkillMeta;
+} {
+  const warnings = [...input.warnings];
+  const metaName = input.meta.name;
+  const metaDescription = input.meta.description;
 
   if (typeof metaName !== "string" || metaName.trim() === "") {
     warnings.push({
@@ -39,7 +47,7 @@ export function applyValidationRules(skill: LoadedSkill): LoadedSkill {
     });
   }
 
-  const contentLineCount = getLineCount(skill.content);
+  const contentLineCount = getLineCount(input.content);
   if (contentLineCount > 500) {
     warnings.push({
       code: "skill_md_content_size_limit_exceeded",
@@ -47,16 +55,22 @@ export function applyValidationRules(skill: LoadedSkill): LoadedSkill {
     });
   }
 
-  const state = warnings.some((warning) =>
+  const dedupedWarnings = dedupeWarnings(warnings);
+  const isValid = !dedupedWarnings.some((warning) =>
     INVALID_WARNING_CODES.has(warning.code),
-  )
-    ? "invalid"
-    : "valid";
+  );
+
+  if (isValid) {
+    return {
+      warnings: dedupedWarnings,
+      isValid: true,
+      meta: input.meta as SkillMeta,
+    };
+  }
 
   return {
-    ...skill,
-    warnings: dedupeWarnings(warnings),
-    state,
+    warnings: dedupedWarnings,
+    isValid: false,
   };
 }
 

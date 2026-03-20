@@ -1,6 +1,6 @@
 {
   "name": "load-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Load and validate agent skills from configurable paths.",
   "type": "module",
   "main": "./dist/index.js",

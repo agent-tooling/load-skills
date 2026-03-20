@@ -6,9 +6,10 @@ import { discoverSkillFiles } from "./discovery.js";
 import { parseSkillDocument } from "./parseSkill.js";
 import type {
   IgnoredDuplicateSkill,
-  LoadedSkill,
+  InvalidSkill,
   LoadSkillsConfig,
   LoadSkillsResult,
+  Skill,
   SkillScript,
   SkillScriptType,
   SkillWarning,
@@ -24,7 +25,8 @@ export async function loadSkills(
 ): Promise<LoadSkillsResult> {
   const resolvedConfig = config ?? {};
   const discovery = await discoverSkillFiles(resolvedConfig);
-  const results: LoadedSkill[] = [];
+  const skills: Record<string, Skill> = {};
+  const invalidSkills: InvalidSkill[] = [];
   const reportPaths = discovery.report.map((entry) => ({ ...entry }));
   const ignoredDuplicates: Record<string, IgnoredDuplicateSkill[]> = {};
   const includedByName = new Map<
@@ -54,15 +56,10 @@ export async function loadSkills(
     );
     skillWarnings.push(...largeReferenceWarnings);
 
-    const skill = applyValidationRules({
+    const validated = applyValidationRules({
       meta: parsed.meta,
       content: parsed.content,
-      references: resourceScan.references,
-      scripts: resourceScan.scripts,
-      state: "valid",
       warnings: skillWarnings,
-      skillPath,
-      skillFilePath,
     });
 
     const reportItem = reportPaths[discovered.pathReportIndex];
@@ -70,43 +67,58 @@ export async function loadSkills(
       continue;
     }
 
-    const resolvedName =
-      typeof skill.meta.name === "string" && skill.meta.name.trim() !== ""
-        ? skill.meta.name.trim()
-        : path.basename(skill.skillPath);
-
-    if (typeof skill.meta.name === "string" && skill.meta.name.trim() !== "") {
-      const normalizedName = skill.meta.name.trim().toLowerCase();
-      const existing = includedByName.get(normalizedName);
-      if (existing) {
-        const ignoredEntry: IgnoredDuplicateSkill = {
-          skillName: resolvedName,
-          normalizedSkillName: normalizedName,
-          ignoredSkillPath: skill.skillPath,
-          ignoredSkillFilePath: skill.skillFilePath,
-          ignoredFromInputPath: discovered.inputPath,
-          keptSkillPath: existing.skillPath,
-          keptSkillFilePath: existing.skillFilePath,
-          keptFromInputPath: existing.inputPath,
-        };
-        const key = existing.skillName;
-        ignoredDuplicates[key] = [
-          ...(ignoredDuplicates[key] ?? []),
-          ignoredEntry,
-        ];
-        continue;
-      }
-
-      includedByName.set(normalizedName, {
-        skillName: resolvedName,
-        skillPath: skill.skillPath,
-        skillFilePath: skill.skillFilePath,
-        inputPath: discovered.inputPath,
+    if (!validated.isValid || !validated.meta) {
+      invalidSkills.push({
+        meta: parsed.meta,
+        content: parsed.content,
+        references: resourceScan.references,
+        scripts: resourceScan.scripts,
+        warnings: validated.warnings,
+        skillPath,
+        skillFilePath,
       });
+      continue;
     }
 
-    results.push(skill);
-    reportItem.skillNames.push(resolvedName);
+    const skill: Skill = {
+      meta: validated.meta,
+      content: parsed.content,
+      references: resourceScan.references,
+      scripts: resourceScan.scripts,
+      skillPath,
+      skillFilePath,
+    };
+
+    const normalizedName = skill.meta.name.trim().toLowerCase();
+    const existing = includedByName.get(normalizedName);
+    if (existing) {
+      const ignoredEntry: IgnoredDuplicateSkill = {
+        skillName: skill.meta.name,
+        normalizedSkillName: normalizedName,
+        ignoredSkillPath: skill.skillPath,
+        ignoredSkillFilePath: skill.skillFilePath,
+        ignoredFromInputPath: discovered.inputPath,
+        keptSkillPath: existing.skillPath,
+        keptSkillFilePath: existing.skillFilePath,
+        keptFromInputPath: existing.inputPath,
+      };
+      const key = existing.skillName;
+      ignoredDuplicates[key] = [
+        ...(ignoredDuplicates[key] ?? []),
+        ignoredEntry,
+      ];
+      continue;
+    }
+
+    includedByName.set(normalizedName, {
+      skillName: skill.meta.name,
+      skillPath: skill.skillPath,
+      skillFilePath: skill.skillFilePath,
+      inputPath: discovered.inputPath,
+    });
+
+    skills[skill.meta.name] = skill;
+    reportItem.skillNames.push(skill.meta.name);
     reportItem.count += 1;
   }
 
@@ -115,10 +127,11 @@ export async function loadSkills(
   }
 
   return {
-    skills: results,
+    skills,
     report: {
       paths: reportPaths,
       ignoredDuplicates,
+      invalidSkills,
     },
   };
 }

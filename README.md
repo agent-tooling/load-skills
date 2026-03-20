@@ -26,12 +26,11 @@ const { skills, report } = await loadSkills({
 
 `skills` includes loaded skill payloads:
 
-- `meta`: parsed frontmatter object
+- shape: `Record<string, Skill>` (keyed by skill name)
+- `meta`: typed frontmatter object with required `name` and `description`
 - `content`: `SKILL.md` content without frontmatter
 - `references`: absolute file paths from `references/`
 - `scripts`: script descriptors from `scripts/` as `{ path, type }`
-- `state`: `"valid"` or `"invalid"`
-- `warnings`: warning objects with machine-readable `code`
 
 `report` includes one entry per configured path:
 
@@ -42,12 +41,15 @@ const { skills, report } = await loadSkills({
   - `skillNames`: included skill names from that path
   - `error` (optional): `path_not_found` or `path_not_directory`
 - `ignoredDuplicates`: map of skipped duplicate skills (first-find-wins), keyed by kept skill name
+- `invalidSkills`: invalid skill entries moved out of `skills`; each item includes `warnings`
 
 ## Path Priority
 
 `paths` is also a priority list. If the same `meta.name` appears in multiple paths, the first one found is included and later ones are ignored.
 
 ## Warning codes
+
+These warnings appear on `report.invalidSkills[*].warnings`.
 
 - `missing_frontmatter`: `SKILL.md` is missing a valid `--- ... ---` frontmatter block.
 - `invalid_yaml_frontmatter`: Frontmatter exists but YAML parsing failed or did not produce an object.

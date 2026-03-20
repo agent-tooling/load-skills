@@ -1,5 +1,3 @@
-export type SkillState = "valid" | "invalid";
-
 export type SkillScriptType =
   | "javascript"
   | "typescript"
@@ -29,12 +27,25 @@ export interface SkillScript {
   type: SkillScriptType;
 }
 
-export interface LoadedSkill {
+export type SkillMeta = Record<string, unknown> & {
+  name: string;
+  description: string;
+};
+
+export interface Skill {
+  meta: SkillMeta;
+  content: string;
+  references: string[];
+  scripts: SkillScript[];
+  skillPath: string;
+  skillFilePath: string;
+}
+
+export interface InvalidSkill {
   meta: Record<string, unknown>;
   content: string;
   references: string[];
   scripts: SkillScript[];
-  state: SkillState;
   warnings: SkillWarning[];
   skillPath: string;
   skillFilePath: string;
@@ -70,10 +81,11 @@ export interface IgnoredDuplicateSkill {
 export interface LoadSkillsReport {
   paths: LoadSkillsPathReport[];
   ignoredDuplicates: Record<string, IgnoredDuplicateSkill[]>;
+  invalidSkills: InvalidSkill[];
 }
 
 export interface LoadSkillsResult {
-  skills: LoadedSkill[];
+  skills: Record<string, Skill>;
   report: LoadSkillsReport;
 }
 
