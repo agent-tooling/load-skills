@@ -252,11 +252,7 @@ async function inferScriptType(filePath: string): Promise<SkillScriptType> {
       if (firstLine.includes("ruby")) {
         return "ruby";
       }
-      if (
-        firstLine.includes("node") ||
-        firstLine.includes("deno") ||
-        firstLine.includes("bun")
-      ) {
+      if (firstLine.includes("node") || firstLine.includes("deno")) {
         return "javascript";
       }
     }

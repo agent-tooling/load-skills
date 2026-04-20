@@ -19,7 +19,7 @@
     "fmt": "prettier -w .",
     "fmt:check": "prettier -c .",
     "prepare": "husky",
-    "precommit:check": "bun run typecheck && bun run test && bun run fmt:check",
+    "precommit:check": "pnpm run typecheck && pnpm run test && pnpm run fmt:check",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

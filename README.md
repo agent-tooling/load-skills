@@ -5,7 +5,7 @@
 ## Install
 
 ```bash
-bun add load-skills
+pnpm add load-skills
 ```
 
 ## Usage
